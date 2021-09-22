@@ -1,4 +1,4 @@
-
+import numpy as np
 import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 # from torch.nn.parallel import DistributedDataParallelCPU as DDPC  # Deprecated
@@ -11,7 +11,6 @@ from rlpyt.utils.logging import logger
 from rlpyt.models.qpg.mlp import MuMlpModel, QofMuMlpModel
 from rlpyt.models.utils import update_state_dict
 from rlpyt.utils.collections import namedarraytuple
-
 
 AgentInfo = namedarraytuple("AgentInfo", ["mu"])
 
@@ -31,7 +30,7 @@ class DdpgAgent(BaseAgent):
             initial_q_model_state_dict=None,
             action_std=0.1,
             action_noise_clip=None,
-            ):
+    ):
         """Saves input arguments; default network sizes saved here."""
         if model_kwargs is None:
             model_kwargs = dict(hidden_sizes=[400, 300])
@@ -41,18 +40,18 @@ class DdpgAgent(BaseAgent):
         super().__init__()  # For async setup.
 
     def initialize(self, env_spaces, share_memory=False,
-            global_B=1, env_ranks=None):
+                   global_B=1, env_ranks=None):
         """Instantiates mu and q, and target_mu and target_q models."""
         super().initialize(env_spaces, share_memory,
-            global_B=global_B, env_ranks=env_ranks)
+                           global_B=global_B, env_ranks=env_ranks)
         self.q_model = self.QModelCls(**self.env_model_kwargs,
-            **self.q_model_kwargs)
+                                      **self.q_model_kwargs)
         if self.initial_q_model_state_dict is not None:
             self.q_model.load_state_dict(self.initial_q_model_state_dict)
         self.target_model = self.ModelCls(**self.env_model_kwargs,
-            **self.model_kwargs)
+                                          **self.model_kwargs)
         self.target_q_model = self.QModelCls(**self.env_model_kwargs,
-            **self.q_model_kwargs)
+                                             **self.q_model_kwargs)
         self.target_q_model.load_state_dict(self.q_model.state_dict())
         assert len(env_spaces.action.shape) == 1
         self.distribution = Gaussian(
@@ -61,6 +60,7 @@ class DdpgAgent(BaseAgent):
             noise_clip=self.action_noise_clip,
             clip=env_spaces.action.high[0],  # Assume symmetric low=-high.
         )
+        self.noise = OUActionNoise(np.zeros(env_spaces.action.shape[0]),sigma=self.action_std)
 
     def to_device(self, cuda_idx=None):
         super().to_device(cuda_idx)  # Takes care of self.model.
@@ -87,7 +87,7 @@ class DdpgAgent(BaseAgent):
     def q(self, observation, prev_action, prev_reward, action):
         """Compute Q-value for input state/observation and action (with grad)."""
         model_inputs = buffer_to((observation, prev_action, prev_reward,
-            action), device=self.device)
+                                  action), device=self.device)
         q = self.q_model(*model_inputs)
         return q.cpu()
 
@@ -95,7 +95,7 @@ class DdpgAgent(BaseAgent):
         """Compute Q-value for input state/observation, through the mu_model
         (with grad)."""
         model_inputs = buffer_to((observation, prev_action, prev_reward),
-            device=self.device)
+                                 device=self.device)
         mu = self.model(*model_inputs)
         q = self.q_model(*model_inputs, mu)
         return q.cpu()
@@ -104,7 +104,7 @@ class DdpgAgent(BaseAgent):
         """Compute target Q-value for input state/observation, through the
         target mu_model."""
         model_inputs = buffer_to((observation, prev_action, prev_reward),
-            device=self.device)
+                                 device=self.device)
         target_mu = self.target_model(*model_inputs)
         target_q_at_mu = self.target_q_model(*model_inputs, target_mu)
         return target_q_at_mu.cpu()
@@ -114,10 +114,12 @@ class DdpgAgent(BaseAgent):
         """Computes distribution parameters (mu) for state/observation,
         returns (gaussian) sampled action."""
         model_inputs = buffer_to((observation, prev_action, prev_reward),
-            device=self.device)
-        mu = self.model(*model_inputs)
-        action = self.distribution.sample(DistInfo(mean=mu))
-        agent_info = AgentInfo(mu=mu)
+                                 device=self.device)
+        action = self.model(*model_inputs)
+        # action = self.distribution.sample(DistInfo(mean=mu))
+        if not self.model.training:
+            action = action + self.noise()
+        agent_info = AgentInfo(mu=action)
         action, agent_info = buffer_to((action, agent_info), device="cpu")
         return AgentStep(action=action, agent_info=agent_info)
 
@@ -158,3 +160,23 @@ class DdpgAgent(BaseAgent):
         self.q_model.load_state_dict(state_dict["q_model"])
         self.target_model.load_state_dict(state_dict["target_model"])
         self.target_q_model.load_state_dict(state_dict["target_q_model"])
+
+
+class OUActionNoise():
+    def __init__(self, mu, sigma=0.15, theta=0.2, dt=1e-2, x0=None):
+        self.theta = theta
+        self.mu = mu
+        self.sigma = sigma
+        self.dt = dt
+        self.x0 = x0
+        self.reset()
+
+    def __call__(self):
+        x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + \
+            self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
+        self.x_prev = x
+
+        return x
+
+    def reset(self):
+        self.x_prev = self.x0 if self.x0 is not None else np.zeros_like(self.mu)

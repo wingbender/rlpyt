@@ -1,4 +1,4 @@
-
+import numpy as np
 import psutil
 import time
 import torch
@@ -141,8 +141,12 @@ class MinibatchRlBase(BaseRunner):
             itr=itr,
             cum_steps=itr * self.sampler.batch_size * self.world_size,
             agent_state_dict=self.agent.state_dict(),
+            agent_models = self.agent.models(),
             optimizer_state_dict=self.algo.optim_state_dict(),
+            replay_buffer=self.algo.replay_buffer,  # TODO: check parameters needed for loading of SAC
         )
+
+
 
     def save_itr_snapshot(self, itr):
         """
@@ -243,18 +247,20 @@ class MinibatchRl(MinibatchRlBase):
         super().__init__(**kwargs)
         self.log_traj_window = int(log_traj_window)
 
-    def train(self):
+    def train(self, first_itr = 0):
         """
         Performs startup, then loops by alternating between
         ``sampler.obtain_samples()`` and ``algo.optimize_agent()``, logging
         diagnostics at the specified interval.
         """
         n_itr = self.startup()
-        for itr in range(n_itr):
+        for itr in range(first_itr,n_itr):
             logger.set_iteration(itr)
             with logger.prefix(f"itr #{itr} "):
+                print("sampling")
                 self.agent.sample_mode(itr)  # Might not be this agent sampling.
                 samples, traj_infos = self.sampler.obtain_samples(itr)
+                print("training")
                 self.agent.train_mode(itr)
                 opt_info = self.algo.optimize_agent(itr, samples)
                 self.store_diagnostics(itr, traj_infos, opt_info)
@@ -291,7 +297,7 @@ class MinibatchRlEval(MinibatchRlBase):
 
     _eval = True
 
-    def train(self):
+    def train(self, first_itr = 0):
         """
         Performs startup, evaluates the initial agent, then loops by
         alternating between ``sampler.obtain_samples()`` and
@@ -302,7 +308,7 @@ class MinibatchRlEval(MinibatchRlBase):
         with logger.prefix(f"itr #0 "):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
             self.log_diagnostics(0, eval_traj_infos, eval_time)
-        for itr in range(n_itr):
+        for itr in range(first_itr,n_itr):
             logger.set_iteration(itr)
             with logger.prefix(f"itr #{itr} "):
                 self.agent.sample_mode(itr)
@@ -313,6 +319,8 @@ class MinibatchRlEval(MinibatchRlBase):
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
+                    if np.mean([et['Return'] for et in eval_traj_infos]) > 200:
+                        break
         self.shutdown()
 
     def evaluate_agent(self, itr):

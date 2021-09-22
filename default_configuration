@@ -1,0 +1,59 @@
+{
+    "general": {
+        "run_ID": 11,
+        "save_name": "sac",
+        "sampler_type": "SerialSampler"
+    },
+    "agent": {
+        "model_kwargs": {
+            "hidden_sizes": [
+                64,
+                64,
+                32,
+                32
+            ]
+        },
+        "q_model_kwargs": {
+            "hidden_sizes": [
+                64,
+                64
+            ]
+        },
+        "v_model_kwargs": {
+            "hidden_sizes": [
+                32,
+                32
+            ]
+        }
+    },
+    "algo": {
+        "replay_size": 500000.0
+    },
+    "sampler": {
+        "env_kwargs": {
+            "id": "LunarLanderContinuous-v2"
+        },
+        "eval_env_kwargs": {
+            "id": "LunarLanderContinuous-v2"
+        },
+        "max_decorrelation_steps": 10000,
+        "eval_max_steps": 100000,
+        "eval_max_trajectories": 100,
+        "batch_T": 1000,
+        "batch_B": 10,
+        "eval_n_envs": 100
+    },
+    "runner": {
+        "n_steps": 50000,
+        "log_interval_steps": 1000,
+        "affinity": {
+            "cuda_idx": null,
+            "workers_cpus": [
+                1,
+                2,
+                3,
+                4
+            ]
+        }
+    }
+}
