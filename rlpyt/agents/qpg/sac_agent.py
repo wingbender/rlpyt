@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 from collections import namedtuple
@@ -13,7 +12,6 @@ from rlpyt.utils.buffer import buffer_to
 from rlpyt.utils.logging import logger
 from rlpyt.models.utils import update_state_dict
 from rlpyt.utils.collections import namedarraytuple
-
 
 MIN_LOG_STD = -20
 MAX_LOG_STD = 2
@@ -33,9 +31,10 @@ class SacAgent(BaseAgent):
             q_model_kwargs=None,
             v_model_kwargs=None,
             initial_model_state_dict=None,  # All models.
+            initial_models = None,
             action_squash=1.,  # Max magnitude (or None).
             pretrain_std=0.75,  # With squash 0.75 is near uniform.
-            ):
+    ):
         """Saves input arguments; network defaults stored within."""
         if model_kwargs is None:
             model_kwargs = dict(hidden_sizes=[256, 256])
@@ -44,25 +43,27 @@ class SacAgent(BaseAgent):
         if v_model_kwargs is None:
             v_model_kwargs = dict(hidden_sizes=[256, 256])
         super().__init__(ModelCls=ModelCls, model_kwargs=model_kwargs,
-            initial_model_state_dict=initial_model_state_dict)
+                         initial_model_state_dict=initial_model_state_dict)
         save__init__args(locals())
         self.min_itr_learn = 0  # Get from algo.
 
     def initialize(self, env_spaces, share_memory=False,
-            global_B=1, env_ranks=None):
+                   global_B=1, env_ranks=None):
         _initial_model_state_dict = self.initial_model_state_dict
         self.initial_model_state_dict = None  # Don't let base agent try to load.
         super().initialize(env_spaces, share_memory,
-            global_B=global_B, env_ranks=env_ranks)
+                           global_B=global_B, env_ranks=env_ranks)
         self.initial_model_state_dict = _initial_model_state_dict
         self.q1_model = self.QModelCls(**self.env_model_kwargs, **self.q_model_kwargs)
         self.q2_model = self.QModelCls(**self.env_model_kwargs, **self.q_model_kwargs)
         self.target_q1_model = self.QModelCls(**self.env_model_kwargs,
-            **self.q_model_kwargs)
+                                              **self.q_model_kwargs)
         self.target_q2_model = self.QModelCls(**self.env_model_kwargs,
-            **self.q_model_kwargs)
+                                              **self.q_model_kwargs)
         self.target_q1_model.load_state_dict(self.q1_model.state_dict())
         self.target_q2_model.load_state_dict(self.q2_model.state_dict())
+        if self.initial_models is not None:
+            self.load_models(self.initial_models)
         if self.initial_model_state_dict is not None:
             self.load_state_dict(self.initial_model_state_dict)
         assert len(env_spaces.action.shape) == 1
@@ -108,16 +109,16 @@ class SacAgent(BaseAgent):
         """Compute twin Q-values for state/observation and input action 
         (with grad)."""
         model_inputs = buffer_to((observation, prev_action, prev_reward,
-            action), device=self.device)
+                                  action), device=self.device)
         q1 = self.q1_model(*model_inputs)
         q2 = self.q2_model(*model_inputs)
         return q1.cpu(), q2.cpu()
 
     def target_q(self, observation, prev_action, prev_reward, action):
         """Compute twin target Q-values for state/observation and input
-        action.""" 
+        action."""
         model_inputs = buffer_to((observation, prev_action,
-            prev_reward, action), device=self.device)
+                                  prev_reward, action), device=self.device)
         target_q1 = self.target_q1_model(*model_inputs)
         target_q2 = self.target_q2_model(*model_inputs)
         return target_q1.cpu(), target_q2.cpu()
@@ -128,7 +129,7 @@ class SacAgent(BaseAgent):
         method of Gaussian distriution, which handles action squashing
         through this process."""
         model_inputs = buffer_to((observation, prev_action, prev_reward),
-            device=self.device)
+                                 device=self.device)
         mean, log_std = self.model(*model_inputs)
         dist_info = DistInfoStd(mean=mean, log_std=log_std)
         action, log_pi = self.distribution.sample_loglikelihood(dist_info)
@@ -140,7 +141,7 @@ class SacAgent(BaseAgent):
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
         model_inputs = buffer_to((observation, prev_action, prev_reward),
-            device=self.device)
+                                 device=self.device)
         mean, log_std = self.model(*model_inputs)
         dist_info = DistInfoStd(mean=mean, log_std=log_std)
         action = self.distribution.sample(dist_info)
@@ -202,3 +203,19 @@ class SacAgent(BaseAgent):
         self.q2_model.load_state_dict(state_dict["q2_model"])
         self.target_q1_model.load_state_dict(state_dict["target_q1_model"])
         self.target_q2_model.load_state_dict(state_dict["target_q2_model"])
+
+    def models(self):
+        return dict(
+            model=self.model,  # Pi model.
+            q1_model=self.q1_model,
+            q2_model=self.q2_model,
+            target_q1_model=self.target_q1_model,
+            target_q2_model=self.target_q2_model,
+        )
+
+    def load_models(self, models):
+        self.model = models["model"]
+        self.q1_model = models["q1_model"]
+        self.q2_model = models["q2_model"]
+        self.target_q1_model = models["target_q1_model"]
+        self.target_q2_model = models["target_q2_model"]
