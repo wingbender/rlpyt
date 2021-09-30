@@ -1,6 +1,6 @@
 {
     "general": {
-        "run_ID": 11,
+        "run_ID": 0,
         "save_name": "sac",
         "sampler_type": "SerialSampler"
     },
@@ -27,7 +27,9 @@
         }
     },
     "algo": {
-        "replay_size": 500000.0
+        "replay_size": 500000.0,
+        "demonstrations_path": "./data/lunar_demo.pkl",
+        "expert_ratio": 0.25
     },
     "sampler": {
         "env_kwargs": {
@@ -36,7 +38,7 @@
         "eval_env_kwargs": {
             "id": "LunarLanderContinuous-v2"
         },
-        "max_decorrelation_steps": 10000,
+        "max_decorrelation_steps": 0,
         "eval_max_steps": 100000,
         "eval_max_trajectories": 100,
         "batch_T": 1000,

@@ -18,12 +18,18 @@ from rlpyt.samplers.parallel.cpu.sampler import CpuSampler
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.qpg.sac import SAC
+from rlpyt.algos.qpg.sacfd import SACfD
 from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.buffer import torchify_buffer, numpify_buffer
 from rlpyt.agents.base import AgentInputs
 from rlpyt.utils.logging import logger
+from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
+    AsyncUniformReplayBuffer)
+from rlpyt.replays.non_sequence.time_limit import (TlUniformReplayBuffer,
+    AsyncTlUniformReplayBuffer)
+import pickle
 
 
 # def build_and_train(env_id="LunarLanderContinuous-v2", run_ID=0, cuda_idx=None, n_cpu=1, save_name='model',
@@ -45,7 +51,8 @@ def build_and_train(configuration_dict, training_mode):
                 agent_state_dict = data['agent_state_dict']  # 'model' and 'target' keys
                 optimizer_state_dict = data['optimizer_state_dict']
                 agent = SacAgent(initial_model_state_dict=agent_state_dict, **configuration_dict['agent'])
-                algo = SAC(initial_optim_state_dict=optimizer_state_dict, **configuration_dict['algo'])
+                algo = SACfD(initial_optim_state_dict=optimizer_state_dict, **configuration_dict['algo'])
+                # algo = SAC(initial_optim_state_dict=optimizer_state_dict, **configuration_dict['algo'])
                 decorrelation_steps = 0
                 restart = False
                 print('Load successful')
@@ -57,9 +64,11 @@ def build_and_train(configuration_dict, training_mode):
         #                  q_model_kwargs={'hidden_sizes': [64, 64]},
         #                  v_model_kwargs={'hidden_sizes': [32, 32]}, )
         agent = SacAgent(**configuration_dict['agent'])
-        algo = SAC(**configuration_dict['algo'])
+        algo = SACfD(**configuration_dict['algo'])
+        # algo = SAC(**configuration_dict['algo'])
         decorrelation_steps = configuration_dict['sampler']['max_decorrelation_steps']
         itr = 0
+
     del configuration_dict['sampler']['max_decorrelation_steps']
     if configuration_dict['general']['sampler_type'] == 'SerialSampler':
         sampler = SerialSampler(
@@ -75,6 +84,9 @@ def build_and_train(configuration_dict, training_mode):
         sampler=sampler,
         **configuration_dict['runner'],
     )
+
+
+
     with logger_context(log_dir='./data/sagiv/',
                         run_ID=configuration_dict['general']['run_ID'],
                         name=configuration_dict['general']['save_name'],
@@ -144,7 +156,7 @@ if __name__ == "__main__":
                         default='./default_configuration')
     parser.add_argument('--train_mode', help='whether or not to restart training for existing model',
                         choices=['start', 'continue', 'infer'],
-                        type=str, default='continue')
+                        type=str, default='start')
     parser.add_argument('--display', help='whether or not to show the model', type=str, default=True)
     parser.add_argument('-y', dest='ignore_warning', action='store_true')
     parser.set_defaults(ignore_warning=False)
@@ -153,7 +165,7 @@ if __name__ == "__main__":
     default_configuration = {
         'general':
             {
-                'run_ID': 11,
+                'run_ID': 0,
                 'save_name': 'sac',
                 'sampler_type': 'SerialSampler'  # CpuSampler
 
@@ -175,7 +187,9 @@ if __name__ == "__main__":
             },
         'algo':
             {
-                'replay_size': 5e5
+                'replay_size': 5e5,
+                'demonstrations_path': './data/lunar_demo.pkl',
+                'expert_ratio' : 0.25
             },
         'sampler':
             {
@@ -187,7 +201,7 @@ if __name__ == "__main__":
                     {
                         'id': 'LunarLanderContinuous-v2'
                     },
-                'max_decorrelation_steps': 10000,  # Random sampling an action to bootstrap
+                'max_decorrelation_steps': 0,  # Random sampling an action to bootstrap
                 'eval_max_steps': 100000,
                 'eval_max_trajectories': 100,
 
