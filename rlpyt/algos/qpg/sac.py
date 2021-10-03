@@ -319,7 +319,6 @@ class SAC(RlAlgorithm):
             log_alpha=self._log_alpha.detach().item(),
             replay_buffer=self.replay_buffer,
         )
-    # TODO: add to this dictionary parameters critical to resume training
 
     def load_optim_state_dict(self, state_dict):
         self.pi_optimizer.load_state_dict(state_dict["pi_optimizer"])
@@ -331,4 +330,3 @@ class SAC(RlAlgorithm):
             self._log_alpha[:] = state_dict["log_alpha"]
             self._alpha = torch.exp(self._log_alpha.detach())
         self.replay_buffer = state_dict["replay_buffer"]
-    # TODO: load here parameters critical to resume training

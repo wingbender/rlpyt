@@ -1,7 +1,5 @@
 {
     "general": {
-        "run_ID": 0,
-        "save_name": "sac",
         "sampler_type": "SerialSampler"
     },
     "agent": {
@@ -28,8 +26,10 @@
     },
     "algo": {
         "replay_size": 500000.0,
+        "replay_ratio": 128,
+        "batch_size": 256,
         "demonstrations_path": "./data/lunar_demo.pkl",
-        "expert_ratio": 0.25
+        "expert_ratio": 0.5
     },
     "sampler": {
         "env_kwargs": {
@@ -39,15 +39,15 @@
             "id": "LunarLanderContinuous-v2"
         },
         "max_decorrelation_steps": 0,
-        "eval_max_steps": 100000,
-        "eval_max_trajectories": 100,
-        "batch_T": 1000,
-        "batch_B": 10,
-        "eval_n_envs": 100
+        "eval_max_steps": 5000,
+        "eval_max_trajectories": 10,
+        "batch_T": 512,
+        "batch_B": 5,
+        "eval_n_envs": 1
     },
     "runner": {
-        "n_steps": 50000,
-        "log_interval_steps": 1000,
+        "n_steps": 100000,
+        "log_interval_steps": 5000,
         "affinity": {
             "cuda_idx": null,
             "workers_cpus": [
@@ -57,5 +57,12 @@
                 4
             ]
         }
+    },
+    "logger": {
+        "log_dir": "./data/sagiv/",
+        "run_ID": 5,
+        "name": "SACfD",
+        "snapshot_mode": "last",
+        "use_summary_writer": true
     }
 }

@@ -25,11 +25,19 @@ from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.buffer import torchify_buffer, numpify_buffer
 from rlpyt.agents.base import AgentInputs
 from rlpyt.utils.logging import logger
+from rlpyt.utils.collections import namedarraytuple
 from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
-    AsyncUniformReplayBuffer)
+                                                AsyncUniformReplayBuffer)
 from rlpyt.replays.non_sequence.time_limit import (TlUniformReplayBuffer,
-    AsyncTlUniformReplayBuffer)
+                                                   AsyncTlUniformReplayBuffer)
 import pickle
+
+# TODO: Importing SamplesToBufferTl here is done to avoid problems when loading expert demos. This can be avoided by switching to namedarraytupleschema in the creation of thr replayBuffer
+
+SamplesToBuffer = namedarraytuple("SamplesToBuffer",
+                                  ["observation", "action", "reward", "done"])
+SamplesToBufferTl = namedarraytuple("SamplesToBufferTl",
+                                    SamplesToBuffer._fields + ("timeout",))
 
 
 # def build_and_train(env_id="LunarLanderContinuous-v2", run_ID=0, cuda_idx=None, n_cpu=1, save_name='model',
@@ -38,10 +46,8 @@ import pickle
 def build_and_train(configuration_dict, training_mode):
     # Run with defaults.
     restart = True
-    save_name = configuration_dict['general']['save_name']
-    run_ID = configuration_dict['general']['run_ID']
     if training_mode is 'continue':
-        saved_session_path = os.path.join('./data', save_name, f'run_{run_ID}', 'params.pkl')
+        saved_session_path = get_saved_session_path(configuration_dict)
         if os.path.isfile(saved_session_path):
             try:
                 print('Loading saved session...')
@@ -84,29 +90,27 @@ def build_and_train(configuration_dict, training_mode):
         sampler=sampler,
         **configuration_dict['runner'],
     )
-
-
-
-    with logger_context(log_dir='./data/sagiv/',
-                        run_ID=configuration_dict['general']['run_ID'],
-                        name=configuration_dict['general']['save_name'],
-                        snapshot_mode='last'):
+    with logger_context(**configuration_dict['logger']):
         exp_dir = logger.get_snapshot_dir()
         conf_filename = os.path.join(exp_dir, 'conf.json')
         with open(conf_filename, 'w') as f:
             f.writelines(json.dumps(configuration_dict))
         runner.train(itr)
-    return agent
+    return exp_dir
 
     # def show_agent(env_id, episodes, agent=None, save_name=None, run_ID=0):
-
+def get_saved_session_path(configuration_dict):
+    log_dir = configuration_dict['logger']['log_dir']
+    run_ID = configuration_dict['logger']['run_ID']
+    log_dir = os.path.join(log_dir, f"run_{run_ID}")
+    exp_dir = os.path.abspath(log_dir)
+    saved_session_path = os.path.join(exp_dir, 'params.pkl')
+    return saved_session_path
 
 def evaluate_agent(configuration_dict, episodes, display=True):
     env = gym_make(configuration_dict['sampler']['eval_env_kwargs']['id'])
     _ = env.reset()
-    save_name = configuration_dict['general']['save_name']
-    run_ID = configuration_dict['general']['run_ID']
-    saved_session_path = os.path.join('./data', save_name, f'run_{run_ID}', 'params.pkl')
+    saved_session_path = get_saved_session_path(configuration_dict)
     if os.path.isfile(saved_session_path):
         try:
             data = torch.load(saved_session_path)
@@ -115,6 +119,15 @@ def evaluate_agent(configuration_dict, episodes, display=True):
             agent_state_dict = data['agent_state_dict']  # 'model' and 'target' keys
             optimizer_state_dict = data['optimizer_state_dict']
             agent = SacAgent(initial_model_state_dict=agent_state_dict, **configuration_dict['agent'])
+            # B = self.batch_spec.B
+            # envs = [self.EnvCls(**self.env_kwargs) for _ in range(B)]
+            #
+            # set_envs_seeds(envs, seed)  # Random seed made in runner.
+            #
+            # global_B = B * world_size
+            # env_ranks = list(range(rank * B, (rank + 1) * B))
+            agent.initialize(env.spaces, share_memory=False,
+                             global_B=1, env_ranks=[0])
         except:
             raise FileNotFoundError(f'Couldn\'t find a pretrained agent in saved_session_path')
     else:
@@ -165,10 +178,7 @@ if __name__ == "__main__":
     default_configuration = {
         'general':
             {
-                'run_ID': 0,
-                'save_name': 'sac',
                 'sampler_type': 'SerialSampler'  # CpuSampler
-
             },
         'agent':
             {
@@ -188,8 +198,11 @@ if __name__ == "__main__":
         'algo':
             {
                 'replay_size': 5e5,
+                'replay_ratio': 128,
+                'batch_size': 256,
                 'demonstrations_path': './data/lunar_demo.pkl',
-                'expert_ratio' : 0.25
+                'expert_ratio': 0.5,
+                # 'expert_discount':0.8
             },
         'sampler':
             {
@@ -202,23 +215,31 @@ if __name__ == "__main__":
                         'id': 'LunarLanderContinuous-v2'
                     },
                 'max_decorrelation_steps': 0,  # Random sampling an action to bootstrap
-                'eval_max_steps': 100000,
-                'eval_max_trajectories': 100,
+                'eval_max_steps': 5000,
+                'eval_max_trajectories': 10,
 
-                'batch_T': 1000,  # Environment steps per worker in batch
-                'batch_B': 10,  # Total environments and agents
-                'eval_n_envs': 100,
+                'batch_T': 512,  # Environment steps per worker in batch
+                'batch_B': 5,  # Total environments and agents
+                'eval_n_envs': 1,
             },
         'runner':
             {
-                'n_steps': 50000,  # Total environment steps
-                'log_interval_steps': 1000,
+                'n_steps': 100000,  # Total environment steps
+                'log_interval_steps': 5000,
                 'affinity':
                     {
                         'cuda_idx': None,
                         'workers_cpus': [1, 2, 3, 4]
                     }
             },
+        'logger':
+            {
+                'log_dir': './data/sagiv/',
+                'run_ID': 5,
+                'name': 'SACfD',
+                'snapshot_mode': 'last',
+                'use_summary_writer': True
+            }
     }
     if args.configuration_path is not None and \
             args.configuration_path.lower().endswith('.json') and \

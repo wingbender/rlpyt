@@ -30,6 +30,8 @@ SamplesToBufferTl = namedarraytuple("SamplesToBufferTl",
 SamplesFromReplay = namedarraytuple("SamplesFromReplay",
                                     ["agent_inputs", "action", "return_", "done", "done_n",
                                      "target_inputs"])
+SamplesFromReplayTL = namedarraytuple("SamplesFromReplayTL",
+    SamplesFromReplay._fields + ("timeout", "timeout_n"))
 AgentInputs = namedarraytuple("AgentInputs",
     ["observation", "prev_action", "prev_reward"])
 
@@ -38,9 +40,10 @@ class SACfD(SAC):
     """Soft actor critic algorithm, training from a replay buffer
     with expert demonstrations mixed in each learning step"""
 
-    def __init__(self,expert_ratio = 0.25, demonstrations_path = None,*args, **kw):
+    def __init__(self,expert_ratio = 0.25,expert_discount=0.95, demonstrations_path = None,*args, **kw):
         self.expert_ratio = expert_ratio
         self.demonstration_path = demonstrations_path
+        self.expert_discount = expert_discount
         super().__init__(*args, **kw)
 
     def initialize(self, *args, **kw):
@@ -57,6 +60,8 @@ class SACfD(SAC):
         Allocates replay buffer using examples and with the fields in `SamplesToBuffer`
         namedarraytuple.
         """
+        SamplesToBufferTl = namedarraytuple("SamplesToBufferTl",
+                                            SamplesToBuffer._fields + ("timeout",))
         #
         # example_to_buffer = SamplesToBuffer(
         #     observation=examples["observation"],
@@ -82,8 +87,7 @@ class SACfD(SAC):
         #         f" input replay buffer class: {ReplayCls} -- compatibility not"
         #         " guaranteed.")
         # self.expert_buffer = ReplayCls(**replay_kwargs)
-        temp_RB  = torch.load(self.demonstration_path) # TODO: loading here only succeeds if I first load on the console, something to do with the loading of SamplesToBufferTl or related to it
-        self.expert_buffer = temp_RB
+        self.expert_buffer = torch.load(self.demonstration_path)
         # with open(self.demonstration_path, 'rb') as f:
         #     self.expert_buffer = pickle.load(f)
 
@@ -103,10 +107,11 @@ class SACfD(SAC):
         if itr < self.min_itr_learn:
             return opt_info
         for _ in range(self.updates_per_optimize):
-            experience_batch_size = int(self.batch_size*(1-self.expert_ratio))
+            experience_batch_size = int(self.batch_size*(1-self.expert_ratio**itr))
             expert_batch_size = self.batch_size-experience_batch_size
             samples_from_replay = self.replay_buffer.sample_batch(experience_batch_size)
             samples_from_expert = self.expert_buffer.sample_batch(expert_batch_size)
+
             # samples = SamplesFromReplay(
             #     agent_inputs=AgentInputs(
             #         observation=self.extract_observation(T_idxs, B_idxs),
@@ -123,7 +128,7 @@ class SACfD(SAC):
             #         prev_reward=s.reward[target_T_idxs - 1, B_idxs],
             #     ),
             # )
-            samples = torch.cat(samples_from_replay,samples_from_expert) # TODO: This is not working, I have to find a way to combine two namedarraytuple
+            samples = self.merge_replay_buffers(samples_from_replay,samples_from_expert) # TODO: This is not working, I have to find a way to combine two namedarraytuple
             losses, values = self.loss(samples)
             q1_loss, q2_loss, pi_loss, alpha_loss = losses
 
@@ -285,3 +290,24 @@ class SACfD(SAC):
         self.replay_buffer = state_dict["replay_buffer"]
         self.expert_buffer = state_dict["expert_buffer"]
     # TODO: load here parameters critical to resume training
+
+    def merge_replay_buffers(self,rb_a,rb_b):
+        batch = SamplesFromReplayTL(
+            agent_inputs=AgentInputs(
+                observation=torch.cat([rb_a.agent_inputs.observation,rb_b.agent_inputs.observation]),
+                prev_action=torch.cat([rb_a.agent_inputs.prev_action,rb_b.agent_inputs.prev_action]),
+                prev_reward=torch.cat([rb_a.agent_inputs.prev_reward,rb_b.agent_inputs.prev_reward]),
+            ),
+            action=torch.cat([rb_a.action,rb_b.action]),
+            return_=torch.cat([rb_a.return_,rb_b.return_]),
+            done=torch.cat([rb_a.done,rb_b.done]),
+            done_n=torch.cat([rb_a.done_n,rb_b.done_n]),
+            target_inputs=AgentInputs(
+                observation=torch.cat([rb_a.target_inputs.observation,rb_b.target_inputs.observation]),
+                prev_action=torch.cat([rb_a.target_inputs.prev_action,rb_b.target_inputs.prev_action]),
+                prev_reward=torch.cat([rb_a.target_inputs.prev_reward,rb_b.target_inputs.prev_reward]),
+            ),
+            timeout = torch.cat([rb_a.timeout,rb_b.timeout]),
+            timeout_n = torch.cat([rb_a.timeout_n,rb_b.timeout_n]),
+        )
+        return batch
