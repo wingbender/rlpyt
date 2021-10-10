@@ -119,13 +119,6 @@ def evaluate_agent(configuration_dict, episodes, display=True):
             agent_state_dict = data['agent_state_dict']  # 'model' and 'target' keys
             optimizer_state_dict = data['optimizer_state_dict']
             agent = SacAgent(initial_model_state_dict=agent_state_dict, **configuration_dict['agent'])
-            # B = self.batch_spec.B
-            # envs = [self.EnvCls(**self.env_kwargs) for _ in range(B)]
-            #
-            # set_envs_seeds(envs, seed)  # Random seed made in runner.
-            #
-            # global_B = B * world_size
-            # env_ranks = list(range(rank * B, (rank + 1) * B))
             agent.initialize(env.spaces, share_memory=False,
                              global_B=1, env_ranks=[0])
         except:
@@ -178,7 +171,8 @@ if __name__ == "__main__":
     default_configuration = {
         'general':
             {
-                'sampler_type': 'SerialSampler'  # CpuSampler
+                # 'sampler_type': 'SerialSampler',  # CpuSampler
+                'sampler_type': 'CpuSampler',  # CpuSampler
             },
         'agent':
             {
@@ -200,9 +194,10 @@ if __name__ == "__main__":
                 'replay_size': 5e5,
                 'replay_ratio': 128,
                 'batch_size': 256,
+                'min_steps_learn':256,
                 'demonstrations_path': './data/lunar_demo.pkl',
-                'expert_ratio': 0.5,
-                # 'expert_discount':0.8
+                'expert_ratio': 0.05,
+                'expert_discount':0.8
             },
         'sampler':
             {
@@ -220,7 +215,7 @@ if __name__ == "__main__":
 
                 'batch_T': 512,  # Environment steps per worker in batch
                 'batch_B': 5,  # Total environments and agents
-                'eval_n_envs': 1,
+                'eval_n_envs': 2,
             },
         'runner':
             {
@@ -234,8 +229,8 @@ if __name__ == "__main__":
             },
         'logger':
             {
-                'log_dir': './data/sagiv/',
-                'run_ID': 5,
+                'log_dir': './data/debug/',
+                'run_ID': 21,
                 'name': 'SACfD',
                 'snapshot_mode': 'last',
                 'use_summary_writer': True

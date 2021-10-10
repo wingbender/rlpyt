@@ -10,4 +10,5 @@ dependencies:
 - pip:
   - atari-py
   - pyprind  # progbar.
-  - torch==1.5.1+cpu 
+  - torch==1.5.1+cpu
+  - tensorboard

@@ -60,36 +60,9 @@ class SACfD(SAC):
         Allocates replay buffer using examples and with the fields in `SamplesToBuffer`
         namedarraytuple.
         """
-        SamplesToBufferTl = namedarraytuple("SamplesToBufferTl",
-                                            SamplesToBuffer._fields + ("timeout",))
-        #
-        # example_to_buffer = SamplesToBuffer(
-        #     observation=examples["observation"],
-        #     action=examples["action"],
-        #     reward=examples["reward"],
-        #     done=examples["done"],
-        # )
-        # if not self.bootstrap_timelimit:
-        #     ReplayCls = UniformReplayBuffer
-        # else:
-        #     example_to_buffer = SamplesToBufferTl(*example_to_buffer,
-        #         timeout=examples["env_info"].timeout)
-        #     ReplayCls = TlUniformReplayBuffer
-        # replay_kwargs = dict(
-        #     example=example_to_buffer,
-        #     size=self.replay_size,
-        #     B=batch_spec.B,
-        #     n_step_return=self.n_step_return,
-        # )
-        # if self.ReplayBufferCls is not None:
-        #     ReplayCls = self.ReplayBufferCls
-        #     logger.log(f"WARNING: ignoring internal selection logic and using"
-        #         f" input replay buffer class: {ReplayCls} -- compatibility not"
-        #         " guaranteed.")
-        # self.expert_buffer = ReplayCls(**replay_kwargs)
+        # SamplesToBufferTl = namedarraytuple("SamplesToBufferTl",
+        #                                     SamplesToBuffer._fields + ("timeout",))
         self.expert_buffer = torch.load(self.demonstration_path)
-        # with open(self.demonstration_path, 'rb') as f:
-        #     self.expert_buffer = pickle.load(f)
 
 
     def optimize_agent(self, itr, samples=None, sampler_itr=None):
@@ -104,31 +77,17 @@ class SACfD(SAC):
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
         opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
-        if itr < self.min_itr_learn:
-            return opt_info
+        # if itr < self.min_itr_learn:
+        #     return opt_info
         for _ in range(self.updates_per_optimize):
-            experience_batch_size = int(self.batch_size*(1-self.expert_ratio**itr))
-            expert_batch_size = self.batch_size-experience_batch_size
-            samples_from_replay = self.replay_buffer.sample_batch(experience_batch_size)
-            samples_from_expert = self.expert_buffer.sample_batch(expert_batch_size)
-
-            # samples = SamplesFromReplay(
-            #     agent_inputs=AgentInputs(
-            #         observation=self.extract_observation(T_idxs, B_idxs),
-            #         prev_action=s.action[T_idxs - 1, B_idxs],
-            #         prev_reward=s.reward[T_idxs - 1, B_idxs],
-            #     ),
-            #     action=s.action[T_idxs, B_idxs],
-            #     return_=self.samples_return_[T_idxs, B_idxs],
-            #     done=self.samples.done[T_idxs, B_idxs],
-            #     done_n=self.samples_done_n[T_idxs, B_idxs],
-            #     target_inputs=AgentInputs(
-            #         observation=self.extract_observation(target_T_idxs, B_idxs),
-            #         prev_action=s.action[target_T_idxs - 1, B_idxs],
-            #         prev_reward=s.reward[target_T_idxs - 1, B_idxs],
-            #     ),
-            # )
-            samples = self.merge_replay_buffers(samples_from_replay,samples_from_expert) # TODO: This is not working, I have to find a way to combine two namedarraytuple
+            if itr < self.min_itr_learn:
+                samples = self.expert_buffer.sample_batch(self.batch_size)
+            else:
+                experience_batch_size = int(self.batch_size*(1-self.expert_ratio))
+                expert_batch_size = self.batch_size-experience_batch_size
+                samples_from_replay = self.replay_buffer.sample_batch(experience_batch_size)
+                samples_from_expert = self.expert_buffer.sample_batch(expert_batch_size)
+                samples = self.merge_replay_buffers(samples_from_replay,samples_from_expert) # TODO: This is not working, I have to find a way to combine two namedarraytuple
             losses, values = self.loss(samples)
             q1_loss, q2_loss, pi_loss, alpha_loss = losses
 

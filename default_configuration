@@ -1,6 +1,6 @@
 {
     "general": {
-        "sampler_type": "SerialSampler"
+        "sampler_type": "CpuSampler"
     },
     "agent": {
         "model_kwargs": {
@@ -28,8 +28,10 @@
         "replay_size": 500000.0,
         "replay_ratio": 128,
         "batch_size": 256,
+        "min_steps_learn": 256,
         "demonstrations_path": "./data/lunar_demo.pkl",
-        "expert_ratio": 0.5
+        "expert_ratio": 0.05,
+        "expert_discount": 0.8
     },
     "sampler": {
         "env_kwargs": {
@@ -43,7 +45,7 @@
         "eval_max_trajectories": 10,
         "batch_T": 512,
         "batch_B": 5,
-        "eval_n_envs": 1
+        "eval_n_envs": 2
     },
     "runner": {
         "n_steps": 100000,
@@ -59,8 +61,8 @@
         }
     },
     "logger": {
-        "log_dir": "./data/sagiv/",
-        "run_ID": 5,
+        "log_dir": "./data/debug/",
+        "run_ID": 21,
         "name": "SACfD",
         "snapshot_mode": "last",
         "use_summary_writer": true

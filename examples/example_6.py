@@ -58,7 +58,7 @@ variant_levels.append(VariantLevel(keys, values, dir_names))
 variants, log_dirs = make_variants(*variant_levels)
 
 run_experiments(
-    script="examples/example_6a.py",
+    script="../examples/example_6a.py",
     affinity_code=affinity_code,
     experiment_title=experiment_title,
     runs_per_setting=runs_per_setting,

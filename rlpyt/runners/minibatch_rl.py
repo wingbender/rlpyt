@@ -297,7 +297,7 @@ class MinibatchRlEval(MinibatchRlBase):
 
     _eval = True
 
-    def train(self, first_itr = 0):
+    def train(self, first_itr = 0, max_return = None):
         """
         Performs startup, evaluates the initial agent, then loops by
         alternating between ``sampler.obtain_samples()`` and
@@ -319,8 +319,9 @@ class MinibatchRlEval(MinibatchRlBase):
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
-                    if np.mean([et['Return'] for et in eval_traj_infos]) > 200:
-                        break
+                    if max_return is not None:
+                        if np.mean([et['Return'] for et in eval_traj_infos]) > max_return:
+                            break
         self.shutdown()
 
     def evaluate_agent(self, itr):
