@@ -1,14 +1,17 @@
 name: rlpyt
 channels:
 - pytorch
+- conda-forge
 dependencies:
 - python=3.7
 - numpy
 - psutil
 - opencv  # atari.
 - pip
-- pip:
+- gym
+- pip3:
+  - box2d-py
   - atari-py
   - pyprind  # progbar.
-  - torch==1.5.1+cpu
+  - torch==1.5.1
   - tensorboard

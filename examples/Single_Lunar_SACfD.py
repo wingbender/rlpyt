@@ -103,8 +103,8 @@ if __name__ == "__main__":
     default_configuration = {
         'general':
             {
-                # 'sampler_type': 'SerialSampler',  # CpuSampler
-                'sampler_type': 'CpuSampler',  # CpuSampler
+                'sampler_type': 'SerialSampler',  # CpuSampler
+                # 'sampler_type': 'CpuSampler',  # CpuSampler
                 'algo':'SACfD'
             },
         'agent':
@@ -129,7 +129,7 @@ if __name__ == "__main__":
                 'batch_size': 256,
                 'min_steps_learn': 256,
                 'demonstrations_path': '/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/lunar_demo.pkl',
-                'expert_ratio': 0.05,
+                'expert_ratio': 0.2,
                 'expert_discount':0.8
             },
         'sampler':
@@ -142,7 +142,7 @@ if __name__ == "__main__":
                     {
                         'id': 'LunarLanderContinuous-v2'
                     },
-                'max_decorrelation_steps': 0,  # Random sampling an action to bootstrap
+                'max_decorrelation_steps': 5000,  # Random sampling an action to bootstrap
                 'eval_max_steps': 5000,
                 'eval_max_trajectories': 10,
 

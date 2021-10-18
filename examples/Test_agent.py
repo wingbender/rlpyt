@@ -35,9 +35,12 @@ def get_saved_session_path(configuration_dict):
     saved_session_path = os.path.join(exp_dir, 'params.pkl')
     return saved_session_path
 
-def evaluate_agent(configuration_dict, episodes, display=True):
+def evaluate_agent(configuration_dict, episodes, display=True, seed = None):
     env = gym_make(configuration_dict['sampler']['eval_env_kwargs']['id'])
-    _ = env.reset()
+    if seed is not None:
+        np.random.seed(seed)
+        seeds = np.random.randint(1,9999,episodes)
+    obs_size = len(env.reset())
     saved_session_path = get_saved_session_path(configuration_dict)
     if os.path.isfile(saved_session_path):
         try:
@@ -55,8 +58,11 @@ def evaluate_agent(configuration_dict, episodes, display=True):
         raise FileNotFoundError(f'Couldn\'t find a pretrained agent in saved_session_path')
 
     tot_rewards = []
+    initials = np.zeros((obs_size,episodes))
     for i in range(episodes):
-        _ = env.reset()
+        if seed is not None:
+            env.seed(int(seeds[i]))
+        initials[:,i] = env.reset()
         a = env.action_space.sample()
         o, r, d, env_info = env.step(a)
         r = np.asarray(r, dtype="float32")  # Must match torch float dtype here.
@@ -64,22 +70,29 @@ def evaluate_agent(configuration_dict, episodes, display=True):
         done = False
         tot_reward = 0
         t = 0
-        while not done:
+        while not done and t<1000:
             agent_inputs = torchify_buffer(AgentInputs(o, a, np.array([r])))
             action, agent_info = agent.step(*agent_inputs)
             action = numpify_buffer(action)
             o, r, done, info = env.step(action)
-            env.render()
+            if display:
+                env.render()
             tot_reward += r
             t += 1
         tot_rewards.append(tot_reward)
-        print(f'Total reward for episode {i}: {tot_reward}')
-    print(f'Average reward = {np.mean(tot_rewards)}')
+        if display:
+            print(f'Total reward for episode {i}: {tot_reward}')
+        elif i%10 ==0:
+            print(i)
+
+    mar = np.mean(tot_rewards)
+    if display:
+        print(f'Average reward = {mar}')
+    return mar,tot_rewards, initials
 
 
 if __name__ == "__main__":
     import argparse
-
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--configuration_path', help='Path to load/save configuration file', type=str)
     # /home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/local/20211005/152843/SACfD_ablation/SACfD_ablation_ER_0.2/run_1/conf.json

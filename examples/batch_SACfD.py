@@ -38,8 +38,10 @@ if __name__ == "__main__":
     # affinity_code = quick_affinity_code(n_parallel=None, use_gpu=True)
 
     runs_per_setting = 5
-    # experiment_title = "SACfD_ablation"
-    experiment_title = "SAC"
+    experiment_title = "compare"
+    experiment_title = "SACfD"
+    # experiment_title = "SAC"
+
     variant_levels = list()
 
 
@@ -56,7 +58,11 @@ if __name__ == "__main__":
         values = list(zip(expert_ratio))
         dir_names = [f"SACfD_ablation_ER_{v[0]}" for v in values]
         keys = [("algo", "expert_ratio")]
-
+    if experiment_title == "compare":
+        names = ["SAC","SACfD"]
+        values = list(zip(names))
+        dir_names = [f"Compare_{v[0]}" for v in values]
+        keys = [("general", "algo")]
     variant_levels.append(VariantLevel(keys, values, dir_names))
     # batch_T = [1024, 1024]
     # # games = ["pong", "seaquest"]
