@@ -1,9 +1,9 @@
+import argparse
 import json
 import os
 
 import torch.nn
 import numpy as np
-import pandas as pd
 
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.agents.qpg.sac_agent import SacAgent
@@ -105,39 +105,35 @@ def evaluate_agent(configuration_dict, episodes, display=True, seed = None,res_d
         return mar,tot_rewards, this_initials
 
 if __name__ == "__main__":
-    multi = True
-    seed = 1234
-    episodes = 10
-    # conf_paths = list_files('../data/local/', 'conf.json') #/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/local/20211010/112947/SAC
-    conf_paths = list_files('/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/local/20211010/112947/SAC',
-                            'conf.json')  #
-    # conf_paths = list_files('/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/local/20211005/152843/SACfD_ablation',
-    #                         'conf.json')  #
+    # Initialize the Parser
+    parser = argparse.ArgumentParser()
 
+    # Adding Arguments
+    parser.add_argument('--folder','-f',type=str, default='../data/')
+    parser.add_argument('--episodes','-e', type=int, default=10)
+    parser.add_argument('--seed','-s',type=int, default=1234)
+    parser.add_argument('--n_cpu','-n',type=int,default=1)
+    args = parser.parse_args()
+    args = parser.parse_args()
+    folder = args.folder
+    multi = not args.n_cpu in [0,1]
+    seed = args.seed
+    episodes = args.episodes
+    conf_paths = list_files(folder,'conf.json')  #
     first_initials = None
     mars = np.zeros(len(conf_paths))
     rewards = np.zeros((len(conf_paths),episodes))
     avg_time = np.zeros(len(conf_paths))
     start_time = time.time()
     processes = []
-    if multi:
-        mgr = mp.Manager()
-        res_dict = mgr.dict()
-        # first_initials = mgr.list()
+    map_vals = []
     for i, conf_path in enumerate(conf_paths):
         with open(conf_path, 'r+') as conf_file:
             config = json.loads(conf_file.read())
         if multi:
             log_dir = config['logger']['log_dir']
-            mkwargs = {
-                'configuration_dict':config,
-                'episodes':episodes,
-                'display': False,
-                'seed' : seed,
-                'res_dict' : res_dict,
-                # 'initials' : first_initials
-            }
-            processes.append(mp.Process(target = evaluate_agent,kwargs=mkwargs))
+            map_vals.append([config,episodes,False,seed])
+            # processes.append(mp.Process(target = evaluate_agent,kwargs=mkwargs))
         else:
             conf_start_time = time.time()
             print(f'Running agent {i+1} of {len(conf_paths)}')
@@ -155,9 +151,16 @@ if __name__ == "__main__":
                 writer.writerows(list(zip(conf_paths, mars.tolist(),avg_time.tolist())))
             np.savetxt('../data/rewards1.csv',rewards)
     if multi:
-        [p.start() for p in processes]
-        [p.join() for p in processes]
-    print(res_dict)
-    df = pd.DataFrame.from_dict({k:v for k,v in res_dict.items()})
-    # print(first_initials)
-    df.to_csv('../data/rewards_2.csv')
+        with mp.Pool(args.n_cpu) as pool:
+            res = pool.starmap(evaluate_agent,map_vals)
+            mars = []
+            tmp = np.array([v for _, _, v in res])
+            ## Make sure all initial conditions are the same
+            assert all([np.allclose(tmp[i, :], tmp[i + 1, :]) for i in range(tmp.shape[0] - 1)])
+            tot_rewards = np.array([v for _, v,_ in res])
+    index = ['__'.join(cp.split('/')[-3:-1]) for cp in conf_paths]
+    with open('../data/rewards_2.csv','w') as f:
+        writer = csv.writer(f)
+        writer.writerow(index)
+        writer.writerows(tot_rewards.T.tolist())
+
