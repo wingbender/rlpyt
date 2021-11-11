@@ -11,6 +11,7 @@ example.
 import json
 import os
 
+import matplotlib.pyplot as plt
 import torch.nn
 import numpy as np
 
@@ -19,6 +20,8 @@ from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.utils.buffer import torchify_buffer, numpify_buffer
 from rlpyt.agents.base import AgentInputs
 from rlpyt.utils.collections import namedarraytuple
+
+import gym_flySim
 
 # TODO: Importing SamplesToBufferTl here is done to avoid problems when loading expert demos. This can be avoided by switching to namedarraytupleschema in the creation of thr replayBuffer
 
@@ -35,7 +38,7 @@ def get_saved_session_path(configuration_dict):
     saved_session_path = os.path.join(exp_dir, 'params.pkl')
     return saved_session_path
 
-def evaluate_agent(configuration_dict, episodes, display=True, seed = None):
+def evaluate_agent(configuration_dict, episodes, display=True, seed = None,save_graphs=False):
     env = gym_make(configuration_dict['sampler']['eval_env_kwargs']['id'])
     if seed is not None:
         np.random.seed(seed)
@@ -64,12 +67,16 @@ def evaluate_agent(configuration_dict, episodes, display=True, seed = None):
             env.seed(int(seeds[i]))
         initials[:,i] = env.reset()
         a = env.action_space.sample()
-        o, r, d, env_info = env.step(a)
+        o, r, d, env_info = env.step(a)  #TODO: get this from agent.reset later on
         r = np.asarray(r, dtype="float32")  # Must match torch float dtype here.
         agent.reset()
         done = False
         tot_reward = 0
         t = 0
+        if save_graphs:
+            observations = np.zeros([len(o),1000])
+            rewards_graph = np.zeros([1, 1000])
+            actions = np.zeros([len(a), 1000])
         while not done and t<1000:
             agent_inputs = torchify_buffer(AgentInputs(o, a, np.array([r])))
             action, agent_info = agent.step(*agent_inputs)
@@ -77,6 +84,10 @@ def evaluate_agent(configuration_dict, episodes, display=True, seed = None):
             o, r, done, info = env.step(action)
             if display:
                 env.render()
+            if save_graphs:
+                observations[:,t]=o
+                rewards_graph[:,t]= r
+                actions[:,t] = action
             tot_reward += r
             t += 1
         tot_rewards.append(tot_reward)
@@ -84,6 +95,8 @@ def evaluate_agent(configuration_dict, episodes, display=True, seed = None):
             print(f'Total reward for episode {i}: {tot_reward}')
         elif i%10 ==0:
             print(i)
+    if save_graphs:
+        np.savez(os.path.join(saved_session_path.split('/')[0],'results'),observations=observations,actions=actions,rewards=rewards_graph)
 
     mar = np.mean(tot_rewards)
     if display:
@@ -102,4 +115,4 @@ if __name__ == "__main__":
             os.path.isfile(args.configuration_path):
         with open(args.configuration_path, 'r+') as conf_file:
             config = json.loads(conf_file.read())
-        evaluate_agent(config, 10, True)
+        evaluate_agent(config, 1, display=False,save_graphs=True)

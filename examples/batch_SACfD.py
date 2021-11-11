@@ -38,9 +38,9 @@ if __name__ == "__main__":
     # affinity_code = quick_affinity_code(n_parallel=None, use_gpu=True)
 
     runs_per_setting = 5
-    experiment_title = "compare"
-    experiment_title = "SACfD"
-    # experiment_title = "SAC"
+    # experiment_title = "compare"
+    # experiment_title = "SACfD"
+    experiment_title = "SAC"
 
     variant_levels = list()
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     variants, log_dirs = make_variants(*variant_levels)
 
     run_experiments(
-        script="../examples/Single_Lunar_SACfD.py",
+        script="../examples/Single_Fly_SACfD.py",
         affinity_code=affinity_code,
         experiment_title=experiment_title,
         runs_per_setting=runs_per_setting,
