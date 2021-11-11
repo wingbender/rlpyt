@@ -103,8 +103,8 @@ if __name__ == "__main__":
     default_configuration = {
         'general':
             {
-                'sampler_type': 'SerialSampler',  # CpuSampler
-                # 'sampler_type': 'CpuSampler',  # CpuSampler
+                # 'sampler_type': 'SerialSampler',  # CpuSampler
+                'sampler_type': 'CpuSampler', 
                 'algo':'SACfD'
             },
         'agent':
@@ -128,8 +128,8 @@ if __name__ == "__main__":
                 'replay_ratio': 128,
                 'batch_size': 256,
                 'min_steps_learn': 256,
-                'demonstrations_path': '/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/lunar_demo.pkl',
                 'expert_ratio': 0.2,
+                'demonstrations_path': '../data/lunar_demo.pkl',
                 'expert_discount':0.8
             },
         'sampler':
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             },
         'logger':
             {
-                'log_dir': '/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/parallel',
+                'log_dir': '../data/parallel',
                 'run_ID': 21,
                 'name': 'SAC',
                 'snapshot_mode': 'last',

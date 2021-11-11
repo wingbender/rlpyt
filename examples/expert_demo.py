@@ -45,8 +45,8 @@ if __name__ == "__main__":
             'eval_max_steps': 1000,
             'eval_max_trajectories': 10,
 
-            'batch_T': 100,  # Environment steps per worker in batch
-            'batch_B': 10,  # Total environments and agents
+            'batch_T': 500,  # Environment steps per worker in batch
+            'batch_B': 50,  # Total environments and agents
             # 'eval_n_envs': 10,
         }
     agent = PIDAgent()
@@ -80,7 +80,7 @@ if __name__ == "__main__":
                                           timeout=examples["env_info"].timeout)
     replay_kwargs = dict(
         example=example_to_buffer,
-        size=10000,
+        size=500000,
         B=sampler_kwargs['batch_B'],
         n_step_return=1,
     )
