@@ -43,23 +43,29 @@ def get_saved_session_path(configuration_dict):
     saved_session_path = os.path.join(exp_dir, 'params.pkl')
     return saved_session_path
 
-
-def run_agent(env, agent, episodes, seeds=None, display=False):
+def run_agent(env,agent,episodes,seeds=None,display=False):
+    print('running agent')
     tot_rewards = []
     for i in range(episodes):
         if seeds is not None:
             env.seed(int(seeds[i]))
         initials = env.reset()
+        if i == 0:
+            print('env reset')
         a = env.action_space.sample()
         o, r, d, env_info = env.step(a)
         r = np.asarray(r, dtype="float32")  # Must match torch float dtype here.
         agent.reset()
+        if i == 0:
+             print('agent reset')
         done = False
         tot_reward = 0
         t = 0
         while not done and t < 1000:
             agent_inputs = torchify_buffer(AgentInputs(o, a, np.array([r])))
             action, agent_info = agent.step(*agent_inputs)
+            if i == 0:
+                print('completed first step')
             action = numpify_buffer(action)
             o, r, done, info = env.step(action)
             if display:
@@ -77,9 +83,12 @@ def run_agent(env, agent, episodes, seeds=None, display=False):
 def evaluate_agent(configuration_dict, episodes, display=True, seed=None, res_dict=None, initials=[]):
     env = gym_make(configuration_dict['sampler']['eval_env_kwargs']['id'])
     if seed is not None:
+        print(f'seeding')
         rng = np.random.default_rng(seed)
         seeds = rng.integers(1,9999, episodes)
+        print(f'seed successful')
     obs_size = len(env.reset())
+    print('env created and reset')
     saved_session_path = get_saved_session_path(configuration_dict)
     if os.path.isfile(saved_session_path):
         try:
@@ -95,8 +104,10 @@ def evaluate_agent(configuration_dict, episodes, display=True, seed=None, res_di
             raise FileNotFoundError(f'Couldn\'t find a pretrained agent in saved_session_path')
     else:
         raise FileNotFoundError(f'Couldn\'t find a pretrained agent in saved_session_path')
+    print('agent initialized')
 
-    tot_rewards, this_initials = run_agent(env, agent, episodes, seeds, display)
+    tot_rewards,this_initials = run_agent(env,agent,episodes,seeds,display)
+    print('agent ran')
     mar = np.mean(tot_rewards)
     if display:
         print(f'Average reward = {mar}')
@@ -107,8 +118,8 @@ def evaluate_agent(configuration_dict, episodes, display=True, seed=None, res_di
         initials.append(this_initials)
         # print(res_dict)
     else:
-        return mar, tot_rewards, this_initials
-
+        print('returning results')
+        return mar,tot_rewards, this_initials
 
 if __name__ == "__main__":
     # Initialize the Parser

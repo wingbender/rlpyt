@@ -1,0 +1,3 @@
+[submodule "envs/flySim"]
+	path = envs/flySim
+	url = https://github.com/wingbender/flySim.git
