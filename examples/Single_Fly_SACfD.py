@@ -37,7 +37,7 @@ from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
 from rlpyt.replays.non_sequence.time_limit import (TlUniformReplayBuffer,
                                                    AsyncTlUniformReplayBuffer)
 import pickle
-import gym_flySim
+# import gym_flySim
 
 # TODO: Importing SamplesToBufferTl here is done to avoid problems when loading expert demos. This can be avoided by switching to namedarraytupleschema in the creation of thr replayBuffer
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
                 'replay_ratio': 128,
                 'batch_size': 256,
                 'min_steps_learn': 256,
-                'demonstrations_path': '/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/lunar_demo.pkl',
+                'demonstrations_path': '/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/fly_demo.pkl',
                 'expert_ratio': 0.2,
                 'expert_discount':0.8
             },
@@ -145,11 +145,13 @@ if __name__ == "__main__":
             {
                 'env_kwargs':
                     {
-                        'id': 'flySim-v0'
+                        'id': 'gym_flySim:flySim-v0',
+                        'random_start': True
                     },
                 'eval_env_kwargs':
                     {
-                        'id': 'flySim-v0'
+                        'id': 'gym_flySim:flySim-v0',
+                        'random_start': True
                     },
                 'max_decorrelation_steps': 5000,  # Random sampling an action to bootstrap
                 'eval_max_steps': 5000,

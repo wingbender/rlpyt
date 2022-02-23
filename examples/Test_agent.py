@@ -115,4 +115,4 @@ if __name__ == "__main__":
             os.path.isfile(args.configuration_path):
         with open(args.configuration_path, 'r+') as conf_file:
             config = json.loads(conf_file.read())
-        evaluate_agent(config, 1, display=False,save_graphs=True)
+        evaluate_agent(config, 10, display=True,save_graphs=True)

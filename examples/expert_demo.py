@@ -4,8 +4,9 @@ import torch
 from rlpyt.replays.non_sequence.time_limit import TlUniformReplayBuffer
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
-from rlpyt.agents.classic.pid_agent import PIDAgent
-from rlpyt.agents.qpg.sac_agent import SacAgent
+# from rlpyt.agents.classic.pid_agent import PIDAgent
+# from rlpyt.agents.qpg.sac_agent import SacAgent
+from rlpyt.agents.classic.pi_agent import PIAgent
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.collections import NamedTupleSchema
 # from rlpyt.replays.non_sequence.uniform import UniformReplayBuffer
@@ -35,21 +36,26 @@ if __name__ == "__main__":
         {
             'env_kwargs':
                 {
-                    'id': 'LunarLanderContinuous-v2'
+                    # 'id': 'LunarLanderContinuous-v2'
+                    'id': 'gym_flySim:flySim-v0',
+                    'random_start': True
                 },
             'eval_env_kwargs':
                 {
-                    'id': 'LunarLanderContinuous-v2'
+                    'id': 'gym_flySim:flySim-v0',
+                    'random_start': True
+                    # 'id': 'LunarLanderContinuous-v2'
                 },
             'max_decorrelation_steps': 0,  # Random sampling an action to bootstrap
-            'eval_max_steps': 1000,
-            'eval_max_trajectories': 10,
+            'eval_max_steps': 400,
+            'eval_max_trajectories': 2,
 
-            'batch_T': 100,  # Environment steps per worker in batch
-            'batch_B': 10,  # Total environments and agents
+            'batch_T': 150,  # Environment steps per worker in batch
+            'batch_B': 3,  # Total environments and agents
             # 'eval_n_envs': 10,
         }
-    agent = PIDAgent()
+    # agent = PIDAgent()
+    agent = PIAgent()
     # agent = SacAgent()
     sampler = SerialSampler(
         EnvCls=gym_make, **sampler_kwargs
@@ -80,7 +86,7 @@ if __name__ == "__main__":
                                           timeout=examples["env_info"].timeout)
     replay_kwargs = dict(
         example=example_to_buffer,
-        size=10000,
+        size=5000,
         B=sampler_kwargs['batch_B'],
         n_step_return=1,
     )
@@ -91,4 +97,4 @@ if __name__ == "__main__":
         samples = samples_to_buffer(samples)
         expert_buffer.append_samples(samples)
         print(f'samples: {len(samples)};  cursor: {expert_buffer.t}/{expert_buffer.T}')
-    torch.save(expert_buffer, '../data/lunar_demo.pkl')
+    torch.save(expert_buffer, '../data/fly_demo.pkl')
