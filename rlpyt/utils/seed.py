@@ -56,9 +56,11 @@ def set_envs_seeds(envs, seed):
     rlpyt envs and spaces don't necessarily have this method, but gym envs
     and spaces do."""
     if seed is not None:
+        ss = np.random.SeedSequence(seed)
+        seeds = ss.spawn(len(envs))
         for i, env in enumerate(envs):
             if hasattr(env, "seed"):  # e.g. Gym environments have seed.
-                env.seed(seed + i)
+                env.seed(seeds[i])
             if hasattr(env.action_space, "seed"):  # e.g. Gym spaces have seed.
                 env.action_space.seed(seed + i)
             if hasattr(env.observation_space, "seed"):

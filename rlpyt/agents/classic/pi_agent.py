@@ -22,7 +22,7 @@ from numpy.linalg import norm, inv
 
 AgentInfo = namedarraytuple("AgentInfo", ["dist_info"])
 Models = namedtuple("Models", ["pi", "q1", "q2", "v"])
-DEG2RAD = 180/np.pi
+DEG2RAD = np.pi/180
 
 
 def body_ang_vel_pqr(angles, angles_dot, get_pqr):

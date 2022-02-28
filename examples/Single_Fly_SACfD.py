@@ -1,13 +1,4 @@
-"""
-Runs one instance of the environment and optimizes using the Soft Actor
-Critic algorithm. Can use a GPU for the agent (applies to both sample and
-train). No parallelism employed, everything happens in one python process; can
-be easier to debug.
 
-Requires OpenAI gym (and maybe mujoco).  If not installed, move on to next
-example.
-
-"""
 import json
 import os
 import sys
@@ -52,7 +43,7 @@ def build_and_train(default_config,slot_affinity_code=None, log_dir=None, run_ID
     if slot_affinity_code is not None:
         affinity = affinity_from_code(slot_affinity_code)
     else:
-        affinity = dict(cuda_idx=None, workers_cpus=[1])
+        affinity = dict(cuda_idx=None, workers_cpus=[0,1,2,3,4,5,6,7])
     if log_dir is not None:
         variant = load_variant(log_dir)
         config = update_config(default_config, variant)
@@ -67,7 +58,7 @@ def build_and_train(default_config,slot_affinity_code=None, log_dir=None, run_ID
         algo = SAC(**config['algo'])
     elif config['general']['algo'] == 'SACfD':
         algo = SACfD(**config['algo'])
-    del config['sampler']['max_decorrelation_steps']
+    # del config['sampler']['max_decorrelation_steps']
     if config['general']['sampler_type'] == 'SerialSampler':
         sampler = SerialSampler(
             EnvCls=gym_make, **config['sampler']
@@ -76,6 +67,8 @@ def build_and_train(default_config,slot_affinity_code=None, log_dir=None, run_ID
         sampler = CpuSampler(
             EnvCls=gym_make, **config['sampler']
         )
+    else:
+        return NotImplementedError()
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
@@ -112,8 +105,8 @@ if __name__ == "__main__":
     default_configuration = {
         'general':
             {
-                'sampler_type': 'SerialSampler',  # CpuSampler
-                # 'sampler_type': 'CpuSampler',  # CpuSampler
+                # 'sampler_type': 'SerialSampler',  # CpuSampler
+                'sampler_type': 'CpuSampler',  # CpuSampler
                 'algo':'SAC'
             },
         'agent':
@@ -133,13 +126,13 @@ if __name__ == "__main__":
             },
         'algo':
             {
-                'replay_size': 5e5,
-                'replay_ratio': 128,
+                'replay_size': 10000,
+                'replay_ratio': 4,
                 'batch_size': 256,
                 'min_steps_learn': 256,
                 'demonstrations_path': '/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/fly_demo.pkl',
-                'expert_ratio': 0.2,
-                'expert_discount':0.8
+                'expert_ratio': 0.4,
+                'expert_discount':0.6
             },
         'sampler':
             {
@@ -153,24 +146,24 @@ if __name__ == "__main__":
                         'id': 'gym_flySim:flySim-v0',
                         'random_start': True
                     },
-                'max_decorrelation_steps': 5000,  # Random sampling an action to bootstrap
-                'eval_max_steps': 5000,
-                'eval_max_trajectories': 10,
+                'max_decorrelation_steps': 0,  # Random sampling an action to bootstrap
+                'eval_max_steps': 880,
+                'eval_max_trajectories': 4,
 
-                'batch_T': 512,  # Environment steps per worker in batch
-                'batch_B': 4,  # Total environments and agents
-                'eval_n_envs': 2,
+                'batch_T': 128,  # Environment steps per worker in batch
+                'batch_B': 8,  # Total environments and agents
+                'eval_n_envs': 4,
             },
         'runner':
             {
                 'n_steps': 100000,  # Total environment steps
-                'log_interval_steps': 5000,
+                'log_interval_steps': 1000,
             },
         'logger':
             {
                 'log_dir': '/home/sagiv/Documents/HUJI/Tsevi/RL/rlpyt/data/flySim/',
                 'run_ID': 111,
-                'name': 'SAC',
+                'name': 'fly_SAC',
                 'snapshot_mode': 'last',
                 'use_summary_writer': True
             }
