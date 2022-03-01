@@ -28,6 +28,7 @@ from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
 from rlpyt.replays.non_sequence.time_limit import (TlUniformReplayBuffer,
                                                    AsyncTlUniformReplayBuffer)
 import pickle
+import psutil
 # import gym_flySim
 
 # TODO: Importing SamplesToBufferTl here is done to avoid problems when loading expert demos. This can be avoided by switching to namedarraytupleschema in the creation of thr replayBuffer
@@ -39,11 +40,18 @@ SamplesToBufferTl = namedarraytuple("SamplesToBufferTl",
 
 
 # def build_and_train(configuration_path):
-def build_and_train(default_config,slot_affinity_code=None, log_dir=None, run_ID=None):
+def build_and_train(default_config,config_path=None,slot_affinity_code=None, log_dir=None, run_ID=None):
+    if config_path is not None:
+        with open(config_path,'r') as f:
+            variant = json.loads(f.read())
+            config = update_config(default_config, variant)
     if slot_affinity_code is not None:
         affinity = affinity_from_code(slot_affinity_code)
     else:
-        affinity = dict(cuda_idx=None, workers_cpus=[0,1,2,3,4,5,6,7])
+        pp = psutil.Process()
+        cpus = pp.cpu_affinity()
+        cpus = cpus[:config['sampler']['batch_B']]
+        affinity = dict(cuda_idx=None, workers_cpus=list([cpu] for cpu in cpus))
     if log_dir is not None:
         variant = load_variant(log_dir)
         config = update_config(default_config, variant)
@@ -58,7 +66,7 @@ def build_and_train(default_config,slot_affinity_code=None, log_dir=None, run_ID
         algo = SAC(**config['algo'])
     elif config['general']['algo'] == 'SACfD':
         algo = SACfD(**config['algo'])
-    # del config['sampler']['max_decorrelation_steps']
+        del config['sampler']['max_decorrelation_steps']
     if config['general']['sampler_type'] == 'SerialSampler':
         sampler = SerialSampler(
             EnvCls=gym_make, **config['sampler']
