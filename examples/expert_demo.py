@@ -13,6 +13,7 @@ from rlpyt.utils.collections import NamedTupleSchema
 # from rlpyt.replays.non_sequence.uniform import UniformReplayBuffer
 from rlpyt.utils.launching.affinity import encode_affinity, quick_affinity_code
 import pickle
+import psutil
 
 SamplesToBuffer = namedarraytuple("SamplesToBuffer",
                                   ["observation", "action", "reward", "done"])
@@ -67,11 +68,13 @@ if __name__ == "__main__":
         EnvCls=gym_make, **sampler_kwargs
     )
     # examples = sampler.initialize(agent=agent)
+    pp = psutil.Process()
+    cpus = pp.cpu_affinity()
     examples = sampler.initialize(
         agent=agent,  # Agent gets initialized in sampler.
-        affinity = dict(cuda_idx=None, workers_cpus=[0,1,2,3]),
+        affinity = dict(cuda_idx=None, workers_cpus=list([cpu] for cpu in cpus)),
         # affinity=dict(cuda_idx=None, workers_cpus=[0, 1]),
-        seed= 0,
+        seed= 1111,
         bootstrap_value=False,
         traj_info_kwargs=dict(discount=1),
         rank=0,
