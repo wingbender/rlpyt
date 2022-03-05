@@ -8,7 +8,7 @@ import sys
 from rlpyt.utils.launching.affinity import get_n_run_slots, prepend_run_slot, affinity_from_code
 from rlpyt.utils.logging.context import get_log_dir
 from rlpyt.utils.launching.variant import save_variant
-
+import psutil
 
 def log_exps_tree(exp_dir, log_dirs, runs_per_setting):
     os.makedirs(exp_dir, exist_ok=True)
@@ -52,6 +52,12 @@ def launch_experiment(
     """
     slot_affinity_code = prepend_run_slot(run_slot, affinity_code)
     affinity = affinity_from_code(slot_affinity_code)
+    pp = psutil.Process()
+    availabele_cpus = pp.cpu_affinity()
+    all_cpus = tuple([availabele_cpus[this_cpu%len(availabele_cpus)] for this_cpu in affinity['all_cpus']])
+    affinity['all_cpus'] = affinity['master_cpus'] = all_cpus
+    workers_cpus = tuple([tuple([availabele_cpus[this_cpu%len(availabele_cpus)] for this_cpu in this_worker_cpus]) for this_worker_cpus in affinity['workers_cpus']])
+    affinity['workers_cpus'] = workers_cpus
     call_list = list()
     if isinstance(affinity, dict) and affinity.get("all_cpus", False):
         cpus = ",".join(str(c) for c in affinity["all_cpus"])
