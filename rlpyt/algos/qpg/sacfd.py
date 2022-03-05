@@ -87,7 +87,13 @@ class SACfD(SAC):
                 expert_batch_size = self.batch_size-experience_batch_size
                 samples_from_replay = self.replay_buffer.sample_batch(experience_batch_size)
                 samples_from_expert = self.expert_buffer.sample_batch(expert_batch_size)
-                samples = self.merge_replay_buffers(samples_from_replay,samples_from_expert) # TODO: This is not working, I have to find a way to combine two namedarraytuple
+                try:
+                    samples = self.merge_replay_buffers(samples_from_replay,samples_from_expert)
+                except RuntimeError as err:
+                    # This error is common when you forget to change the action space dimensions to match your expert actions.
+                    logger.log('Failed to merge expert and agent replay buffers. Check action space dimensions')
+                    raise err
+
             losses, values = self.loss(samples)
             q1_loss, q2_loss, pi_loss, alpha_loss = losses
 
