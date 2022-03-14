@@ -97,7 +97,7 @@ def build_and_train(default_config,config_path=None,slot_affinity_code=None, log
         exp_dir = logger.get_snapshot_dir()
         conf_filename = os.path.join(exp_dir, 'conf.json')
         with open(conf_filename, 'w') as f:
-            f.writelines(json.dumps(config))
+            f.writelines(json.dumps(config,indent=4))
         runner.train()
 
     # def show_agent(env_id, episodes, agent=None, save_name=None, run_ID=0):
@@ -115,7 +115,7 @@ if __name__ == "__main__":
             {
                 # 'sampler_type': 'SerialSampler',  # CpuSampler
                 'sampler_type': 'CpuSampler',  # CpuSampler
-                'algo':'SAC'
+                'algo':'SACfD'
             },
         'agent':
             {
@@ -176,4 +176,4 @@ if __name__ == "__main__":
                 'use_summary_writer': True
             }
     }
-    build_and_train(default_configuration,*sys.argv[1:])
+    build_and_train(default_configuration,None,*sys.argv[1:])

@@ -27,11 +27,11 @@ from rlpyt.utils.launching.variant import make_variants, VariantLevel
 if __name__ == "__main__":
     # Either manually set the resources for the experiment:
     affinity_code = encode_affinity(
-        n_cpu_core=56,
+        n_cpu_core=6,
         n_gpu=0,
         # hyperthread_offset=8,  # if auto-detect doesn't work, number of CPU cores
         # n_socket=1,  # if auto-detect doesn't work, can force (or force to 1)
-        cpu_per_run=4,
+        cpu_per_run=2,
         set_affinity=True,  # it can help to restrict workers to individual CPUs
     )
     # Or try an automatic one, but results may vary:
