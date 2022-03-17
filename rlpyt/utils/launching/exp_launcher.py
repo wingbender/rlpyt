@@ -8,7 +8,7 @@ import sys
 from rlpyt.utils.launching.affinity import get_n_run_slots, prepend_run_slot, affinity_from_code
 from rlpyt.utils.logging.context import get_log_dir
 from rlpyt.utils.launching.variant import save_variant
-
+import psutil
 
 def log_exps_tree(exp_dir, log_dirs, runs_per_setting):
     os.makedirs(exp_dir, exist_ok=True)
@@ -52,6 +52,12 @@ def launch_experiment(
     """
     slot_affinity_code = prepend_run_slot(run_slot, affinity_code)
     affinity = affinity_from_code(slot_affinity_code)
+    pp = psutil.Process()
+    availabele_cpus = pp.cpu_affinity()
+    all_cpus = tuple([availabele_cpus[this_cpu%len(availabele_cpus)] for this_cpu in affinity['all_cpus']])
+    affinity['all_cpus'] = affinity['master_cpus'] = all_cpus
+    workers_cpus = tuple([tuple([availabele_cpus[this_cpu%len(availabele_cpus)] for this_cpu in this_worker_cpus]) for this_worker_cpus in affinity['workers_cpus']])
+    affinity['workers_cpus'] = workers_cpus
     call_list = list()
     if isinstance(affinity, dict) and affinity.get("all_cpus", False):
         cpus = ",".join(str(c) for c in affinity["all_cpus"])
@@ -62,7 +68,7 @@ def launch_experiment(
     if cpus:
         call_list += ["taskset", "-c", cpus]  # PyTorch obeys better than just psutil.
     py = python_executable if python_executable else sys.executable or "python"
-    call_list += [py, script, slot_affinity_code, log_dir, str(run_ID)]
+    call_list += [py, script, "-a",slot_affinity_code,"-d", log_dir,"-i", str(run_ID)]
     call_list += [str(a) for a in args]
     save_variant(variant, log_dir)
     print("\ncall string:\n", " ".join(call_list))
@@ -79,7 +85,7 @@ def launch_experiment(
 
 def run_experiments(script, affinity_code, experiment_title, runs_per_setting,
         variants, log_dirs, common_args=None, runs_args=None,
-        set_egl_device=False):
+        set_egl_device=False,root_log_dir = None):
     """Call in a script to run a set of experiments locally on a machine.  Uses
     the ``launch_experiment()`` function for each individual run, which is a 
     call to the ``script`` file.  The number of experiments to run at the same
@@ -97,7 +103,7 @@ def run_experiments(script, affinity_code, experiment_title, runs_per_setting,
         `progress.csv` file, e.g. ``wc -l experiment-directory/.../run_*/progress.csv``.
     """
     n_run_slots = get_n_run_slots(affinity_code)
-    exp_dir = get_log_dir(experiment_title)
+    exp_dir = get_log_dir(experiment_title,root_log_dir=root_log_dir)
     procs = [None] * n_run_slots
     common_args = () if common_args is None else common_args
     assert len(variants) == len(log_dirs)
